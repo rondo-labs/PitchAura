@@ -1,0 +1,76 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pitch-aura"
+version = "0.1.0"
+description = "A spatial analytics computation engine for football/soccer tracking data"
+readme = "README.md"
+license = "GPL-3.0-only"
+requires-python = ">=3.12"
+authors = [
+    { name = "PitchAura Contributors" },
+]
+keywords = [
+    "football",
+    "soccer",
+    "analytics",
+    "pitch-control",
+    "tracking-data",
+    "spatial",
+    "voronoi",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "pandas>=2.0",
+]
+
+[project.optional-dependencies]
+kloppy = ["kloppy>=3.15"]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "hypothesis>=6.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "pre-commit>=3.0",
+]
+all = ["pitch-aura[kloppy,dev]"]
+
+[project.urls]
+Repository = "https://github.com/rondo-labs/PitchAura"
+Issues = "https://github.com/rondo-labs/PitchAura/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pitch_aura"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 99
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "N"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: tests requiring kloppy and external data",
+]
+addopts = "--strict-markers -ra"
