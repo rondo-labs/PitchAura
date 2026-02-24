@@ -142,9 +142,10 @@ def _make_pitch_traces(pitch: PitchSpec, line_color: str) -> list[go.Scatter]:
     pa_right_x1 = x1
     pa_right_x0 = x1 - _PENALTY_AREA_DEPTH
     traces.append(line(
-        [pa_right_x0, pa_right_x1, pa_right_x1, pa_right_x0],
+        [pa_right_x0, pa_right_x1, pa_right_x1, pa_right_x0, pa_right_x0],
         [cy - _PENALTY_AREA_HALF_WIDTH, cy - _PENALTY_AREA_HALF_WIDTH,
-         cy + _PENALTY_AREA_HALF_WIDTH, cy + _PENALTY_AREA_HALF_WIDTH],
+         cy + _PENALTY_AREA_HALF_WIDTH, cy + _PENALTY_AREA_HALF_WIDTH,
+         cy - _PENALTY_AREA_HALF_WIDTH],
     ))
 
     # Right goal area
