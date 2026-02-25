@@ -33,6 +33,7 @@ def plot_players(
     velocity_scale: float = 0.5,
     show_ball: bool = True,
     show_labels: bool = False,
+    player_names: dict[str, str] | None = None,
     show_pitch: bool = True,
     bgcolor: str = "#1a472a",
     line_color: str = "white",
@@ -55,7 +56,11 @@ def plot_players(
         velocity_scale: Scaling factor for velocity vectors (metres per m/s).
                         E.g. 0.5 means a 10 m/s velocity draws as a 5 m line.
         show_ball:      Draw the ball position as a gold star.
-        show_labels:    Annotate each player with their ID.
+        show_labels:    Annotate each player with their ID (or name if
+                        *player_names* is provided).
+        player_names:   Optional mapping from player_id to display name.
+                        When provided, names are used in hover tooltips and
+                        labels instead of raw IDs.
         show_pitch:     Create pitch background when ``fig=None``.
         bgcolor:        Background colour (used when ``fig=None``).
         line_color:     Pitch line colour (used when ``fig=None``).
@@ -105,10 +110,14 @@ def plot_players(
             sub_pids = [player_ids[i] for i in sub_idx]
             label = ("GK " if gk_val else "") + tid
 
+            def _display(pid: str) -> str:
+                return player_names[pid] if player_names and pid in player_names else pid
+
             hover = [
-                f"ID: {pid}<br>x: {sub_pos[j,0]:.1f}<br>y: {sub_pos[j,1]:.1f}"
+                f"{_display(pid)}<br>x: {sub_pos[j,0]:.1f}<br>y: {sub_pos[j,1]:.1f}"
                 for j, pid in enumerate(sub_pids)
             ]
+            display_labels = [_display(pid) for pid in sub_pids]
 
             fig.add_trace(go.Scatter(
                 x=sub_pos[:, 0],
@@ -120,7 +129,7 @@ def plot_players(
                     symbol=symbol,
                     line=dict(color="white", width=1.5),
                 ),
-                text=sub_pids if show_labels else None,
+                text=display_labels if show_labels else None,
                 textposition="top center",
                 textfont=dict(size=9, color="white"),
                 name=label,

@@ -182,7 +182,7 @@ def pitch_background(
     *,
     bgcolor: str = "#1a472a",
     line_color: str = "white",
-    width: int = 800,
+    width: int = 760,
     height: int = 520,
 ) -> go.Figure:
     """Create a blank Plotly figure with FIFA-standard pitch markings.
@@ -191,7 +191,9 @@ def pitch_background(
         pitch:      Pitch specification (determines coordinate ranges).
         bgcolor:    Background fill colour (default: dark green ``"#1a472a"``).
         line_color: Colour for all pitch marking lines (default: ``"white"``).
-        width:      Figure pixel width (default 800).
+        width:      Figure pixel width (default 760).  At the default height of
+                    520 px this gives a plot area of 680×440 px, matching the
+                    105 m × 68 m FIFA pitch aspect ratio (≈ 1.544).
         height:     Figure pixel height (default 520).
 
     Returns:
@@ -213,9 +215,6 @@ def pitch_background(
             showgrid=False,
             zeroline=False,
             showticklabels=True,
-            scaleanchor="y",
-            scaleratio=1,
-            constrain="domain",
         ),
         yaxis=dict(
             range=[y0, y1],

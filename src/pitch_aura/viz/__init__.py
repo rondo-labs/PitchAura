@@ -28,7 +28,12 @@ from pitch_aura.viz._pitch_draw import pitch_background
 from pitch_aura.viz.animation import animate_sequence
 from pitch_aura.viz.heatmap import plot_heatmap
 from pitch_aura.viz.players import plot_players
-from pitch_aura.viz.tactics import plot_passing_lane, plot_pockets
+from pitch_aura.viz.tactics import (
+    plot_deformation_field,
+    plot_gravity_timeseries,
+    plot_passing_lane,
+    plot_pockets,
+)
 from pitch_aura.viz.voronoi import plot_voronoi
 
 try:
@@ -145,6 +150,8 @@ __all__ = [
     "plot_voronoi",
     "plot_pockets",
     "plot_passing_lane",
+    "plot_deformation_field",
+    "plot_gravity_timeseries",
     "animate_sequence",
     # High-level
     "plot_pitch_control",
