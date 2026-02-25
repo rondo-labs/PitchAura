@@ -210,3 +210,8 @@ __marimo__/
 data/**/*
 !data/**/
 !data/**/.gitkeep
+
+# Script output: ignore generated HTML files but keep folder structure
+scripts/output/*
+!scripts/output/.gitkeep
+
