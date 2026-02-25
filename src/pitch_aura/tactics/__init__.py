@@ -2,6 +2,12 @@
 
 from pitch_aura.tactics.gravity import (
     DeformationGrid,
+    DeformationVectorField,
+    RecoveryMetrics,
+    deformation_flow_field,
+    deformation_recovery,
+    gravity_interaction_matrix,
+    gravity_profile,
     net_space_generated,
     penalty_zone_weights,
     spatial_drag_index,
@@ -19,4 +25,10 @@ __all__ = [
     "net_space_generated",
     "penalty_zone_weights",
     "DeformationGrid",
+    "DeformationVectorField",
+    "RecoveryMetrics",
+    "deformation_flow_field",
+    "deformation_recovery",
+    "gravity_profile",
+    "gravity_interaction_matrix",
 ]

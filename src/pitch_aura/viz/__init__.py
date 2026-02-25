@@ -30,7 +30,9 @@ from pitch_aura.viz.heatmap import plot_heatmap
 from pitch_aura.viz.players import plot_players
 from pitch_aura.viz.tactics import (
     plot_deformation_field,
+    plot_flow_field,
     plot_gravity_timeseries,
+    plot_interaction_matrix,
     plot_passing_lane,
     plot_pockets,
 )
@@ -151,7 +153,9 @@ __all__ = [
     "plot_pockets",
     "plot_passing_lane",
     "plot_deformation_field",
+    "plot_flow_field",
     "plot_gravity_timeseries",
+    "plot_interaction_matrix",
     "animate_sequence",
     # High-level
     "plot_pitch_control",

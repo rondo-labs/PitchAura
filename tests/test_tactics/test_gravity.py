@@ -5,7 +5,9 @@ Author: Xingnan Zhu
 File Name: test_gravity.py
 Description:
     Tests for tactics.gravity module — counterfactual frame construction,
-    Spatial Drag Index, Net Space Generated, and penalty zone weights.
+    Spatial Drag Index, Net Space Generated, penalty zone weights, gravity
+    efficiency, gravity profile, deformation recovery, flow field, and
+    gravity interaction matrix.
 """
 
 from __future__ import annotations
@@ -16,7 +18,13 @@ import pytest
 
 from pitch_aura.tactics.gravity import (
     DeformationGrid,
+    DeformationVectorField,
+    RecoveryMetrics,
     _counterfactual_frame,
+    deformation_flow_field,
+    deformation_recovery,
+    gravity_interaction_matrix,
+    gravity_profile,
     net_space_generated,
     penalty_zone_weights,
     spatial_drag_index,
@@ -299,3 +307,220 @@ class TestPenaltyZoneWeights:
     def test_invalid_side_raises(self):
         with pytest.raises(ValueError, match="side"):
             penalty_zone_weights(side="top")
+
+
+# ---------------------------------------------------------------------------
+# TestGravityEfficiency
+# ---------------------------------------------------------------------------
+
+class TestGravityEfficiency:
+    """sdi_efficiency column is present and correctly computed."""
+
+    def test_efficiency_column_present(self):
+        df = spatial_drag_index(
+            _make_moving_seq(), player_id="p0", attacking_team_id="home",
+            resolution=(10, 7),
+        )
+        assert "sdi_efficiency" in df.columns
+
+    def test_efficiency_nonnegative(self):
+        df = spatial_drag_index(
+            _make_moving_seq(), player_id="p0", attacking_team_id="home",
+            resolution=(10, 7),
+        )
+        assert (df["sdi_efficiency"] >= 0).all()
+
+    def test_stationary_player_efficiency_zero(self):
+        """A player who never moves has zero SDI → zero efficiency."""
+        df = spatial_drag_index(
+            _make_moving_seq(), player_id="p1", attacking_team_id="home",
+            resolution=(10, 7),
+        )
+        # p1 is stationary — displacement is always 0 → efficiency = 0
+        assert (df["sdi_efficiency"] == 0.0).all()
+
+    def test_efficiency_equals_sdi_over_displacement(self):
+        df = spatial_drag_index(
+            _make_moving_seq(n_frames=5), player_id="p0", attacking_team_id="home",
+            resolution=(10, 7),
+        )
+        # Manually compute expected efficiency
+        expected = df["sdi_m2"].to_numpy() / np.maximum(df["displacement_m"].to_numpy(), 1e-6)
+        np.testing.assert_allclose(df["sdi_efficiency"].to_numpy(), expected, rtol=1e-9)
+
+
+# ---------------------------------------------------------------------------
+# TestGravityProfile
+# ---------------------------------------------------------------------------
+
+class TestGravityProfile:
+    def test_returns_dict_with_expected_keys(self):
+        result = gravity_profile(
+            _make_moving_seq(), player_id="p0", attacking_team_id="home",
+            resolution=(10, 7),
+        )
+        expected_keys = {
+            "total_sdi_m2", "peak_sdi_m2", "mean_sdi_efficiency",
+            "total_displacement_m", "n_significant_frames",
+        }
+        assert set(result.keys()) == expected_keys
+
+    def test_empty_sequence_returns_zeros(self):
+        pitch = PitchSpec()
+        empty = FrameSequence(
+            frames=[], frame_rate=10.0, pitch=pitch,
+            home_team_id="home", away_team_id="away",
+        )
+        result = gravity_profile(empty, player_id="p0", attacking_team_id="home")
+        assert result["total_sdi_m2"] == 0.0
+        assert result["n_significant_frames"] == 0
+
+    def test_min_displacement_filters_trivial_frames(self):
+        seq = _make_moving_seq(n_frames=10, dx_per_frame=0.1)  # tiny moves
+        result_tight = gravity_profile(
+            seq, player_id="p0", attacking_team_id="home",
+            resolution=(10, 7), min_displacement=5.0,
+        )
+        result_loose = gravity_profile(
+            seq, player_id="p0", attacking_team_id="home",
+            resolution=(10, 7), min_displacement=0.01,
+        )
+        assert result_tight["n_significant_frames"] <= result_loose["n_significant_frames"]
+
+
+# ---------------------------------------------------------------------------
+# TestDeformationRecovery
+# ---------------------------------------------------------------------------
+
+class TestDeformationRecovery:
+    def _make_sdi_df(self, sdi_values: list[float]) -> pd.DataFrame:
+        n = len(sdi_values)
+        return pd.DataFrame({
+            "timestamp": [float(i) * 0.1 for i in range(n)],
+            "sdi_m2": sdi_values,
+            "displacement_m": [float(i) for i in range(n)],
+            "sdi_efficiency": [1.0] * n,
+        })
+
+    def test_returns_recovery_metrics(self):
+        df = self._make_sdi_df([0.0, 5.0, 10.0, 7.0, 4.0, 1.0])
+        result = deformation_recovery(df)
+        assert isinstance(result, RecoveryMetrics)
+
+    def test_peak_identified_correctly(self):
+        df = self._make_sdi_df([0.0, 5.0, 10.0, 7.0, 4.0, 1.0])
+        result = deformation_recovery(df)
+        assert result.peak_sdi_m2 == 10.0
+        assert abs(result.peak_timestamp - 0.2) < 1e-9
+
+    def test_half_life_detected(self):
+        # Peak=10 at t=0.2; half-life should be found when sdi < 5.0
+        df = self._make_sdi_df([0.0, 5.0, 10.0, 7.0, 4.0, 1.0])
+        result = deformation_recovery(df, peak_threshold=0.5)
+        # sdi drops below 5.0 at index 4 (sdi=4.0, t=0.4) → half_life=0.2s
+        assert result.half_life_s is not None
+        assert result.half_life_s > 0.0
+
+    def test_monotonically_increasing_sdi_gives_none_half_life(self):
+        df = self._make_sdi_df([1.0, 2.0, 3.0, 4.0, 5.0])
+        result = deformation_recovery(df)
+        # SDI never drops after peak (last frame) → half_life is None
+        assert result.half_life_s is None
+
+    def test_empty_df_raises(self):
+        with pytest.raises(ValueError):
+            deformation_recovery(pd.DataFrame())
+
+
+# ---------------------------------------------------------------------------
+# TestDeformationFlowField
+# ---------------------------------------------------------------------------
+
+class TestDeformationFlowField:
+    def _make_deformation(self, values: np.ndarray) -> DeformationGrid:
+        pitch = PitchSpec()
+        nx, ny = values.shape
+        x0, x1 = pitch.x_range
+        y0, y1 = pitch.y_range
+        x_edges = np.linspace(x0, x1, nx + 1)
+        y_edges = np.linspace(y0, y1, ny + 1)
+        return DeformationGrid(
+            values=values, x_edges=x_edges, y_edges=y_edges,
+            pitch=pitch, timestamp=0.0, player_id="p0",
+        )
+
+    def test_returns_deformation_vector_field(self):
+        grid = self._make_deformation(np.zeros((10, 7)))
+        result = deformation_flow_field(grid)
+        assert isinstance(result, DeformationVectorField)
+
+    def test_shape_matches_input(self):
+        grid = self._make_deformation(np.zeros((10, 7)))
+        result = deformation_flow_field(grid)
+        assert result.vectors.shape == (10, 7, 2)
+        assert result.magnitudes.shape == (10, 7)
+
+    def test_uniform_field_gives_zero_gradient(self):
+        """A uniform deformation surface has no gradient → zero flow."""
+        grid = self._make_deformation(np.ones((10, 7)) * 0.5)
+        result = deformation_flow_field(grid)
+        np.testing.assert_allclose(result.magnitudes, 0.0, atol=1e-10)
+
+    def test_linear_gradient_gives_correct_direction(self):
+        """A field that increases along x should produce vectors pointing in +x."""
+        values = np.zeros((10, 7))
+        for i in range(10):
+            values[i, :] = float(i)  # increases along first axis (x)
+        grid = self._make_deformation(values)
+        result = deformation_flow_field(grid)
+        # Interior cells: x-component > 0, y-component ≈ 0
+        interior_vx = result.vectors[2:-2, 2:-2, 0]
+        interior_vy = result.vectors[2:-2, 2:-2, 1]
+        assert (interior_vx > 0).all()
+        np.testing.assert_allclose(interior_vy, 0.0, atol=1e-10)
+
+
+# ---------------------------------------------------------------------------
+# TestGravityInteractionMatrix
+# ---------------------------------------------------------------------------
+
+class TestGravityInteractionMatrix:
+    def _run(self, seq=None, **kwargs):
+        if seq is None:
+            seq = _make_moving_seq(n_frames=5)
+        defaults = dict(
+            attacking_team_id="home",
+            resolution=(10, 7),
+        )
+        defaults.update(kwargs)
+        return gravity_interaction_matrix(seq, **defaults)
+
+    def test_returns_dataframe(self):
+        df = self._run()
+        assert isinstance(df, pd.DataFrame)
+
+    def test_columns_present(self):
+        df = self._run()
+        assert set(df.columns) >= {"mover_id", "beneficiary_id", "total_nsg_m2", "peak_nsg_m2", "mean_nsg_m2"}
+
+    def test_n_rows_equals_ordered_pairs(self):
+        """With 2 home players (p0, p1), expect 2 ordered pairs."""
+        df = self._run()
+        home_pids = ["p0", "p1"]
+        # rows = n_movers × n_beneficiaries = 2 × 1 = 2
+        assert len(df) == 2
+
+    def test_nsg_values_nonnegative(self):
+        df = self._run()
+        assert (df["total_nsg_m2"] >= 0).all()
+        assert (df["peak_nsg_m2"] >= 0).all()
+        assert (df["mean_nsg_m2"] >= 0).all()
+
+    def test_empty_sequence_returns_empty(self):
+        pitch = PitchSpec()
+        empty = FrameSequence(
+            frames=[], frame_rate=10.0, pitch=pitch,
+            home_team_id="home", away_team_id="away",
+        )
+        df = self._run(seq=empty)
+        assert len(df) == 0

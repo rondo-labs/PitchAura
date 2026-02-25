@@ -7,8 +7,10 @@ Description:
     Tactical overlay visualisation functions.
     Provides plot_pockets() for highlighting defensive line gaps,
     plot_passing_lane() for drawing the passing channel between two players,
-    plot_deformation_field() for spatial gravity deformation heatmaps, and
-    plot_gravity_timeseries() for SDI/NSG time-series charts.
+    plot_deformation_field() for spatial gravity deformation heatmaps,
+    plot_gravity_timeseries() for SDI/NSG time-series charts,
+    plot_flow_field() for directional drag vector arrows, and
+    plot_interaction_matrix() for the N×N gravity interaction heatmap.
     All functions are composable via the fig parameter.
 """
 
@@ -19,7 +21,7 @@ import plotly.graph_objects as go
 
 import pandas as pd
 
-from pitch_aura.tactics.gravity import DeformationGrid
+from pitch_aura.tactics.gravity import DeformationGrid, DeformationVectorField
 from pitch_aura.tactics.line_breaking import Pocket
 from pitch_aura.types import FrameRecord, PitchSpec
 
@@ -304,6 +306,167 @@ def plot_gravity_timeseries(
     fig.update_layout(
         xaxis_title="Time (s)",
         yaxis_title=f"{label or metric_col} (m²)",
+        template="plotly_white",
+    )
+
+    return fig
+
+
+def plot_flow_field(
+    flow: DeformationVectorField,
+    frame: FrameRecord | None = None,
+    *,
+    fig: go.Figure | None = None,
+    arrow_scale: float = 15.0,
+    min_magnitude: float = 0.01,
+    color: str = "rgba(255,255,255,0.7)",
+    show_pitch: bool = True,
+    home_team_id: str | None = None,
+    home_color: str = "#3b82f6",
+    away_color: str = "#ef4444",
+    player_names: dict[str, str] | None = None,
+    bgcolor: str = "#1a472a",
+    line_color: str = "white",
+) -> go.Figure:
+    """Render a :class:`DeformationVectorField` as quiver arrows on the pitch.
+
+    Each grid cell with magnitude ≥ *min_magnitude* is drawn as a short line
+    segment (arrow) starting at the cell centre and pointing in the gradient
+    direction.  Arrow length is proportional to magnitude × *arrow_scale*.
+
+    All arrows are packed into a single ``go.Scatter`` trace (segments
+    separated by ``None``) for rendering efficiency.
+
+    Parameters:
+        flow:          Vector field from :func:`deformation_flow_field`.
+        frame:         Optional tracking frame to overlay player positions.
+        fig:           Existing figure; creates a new one if ``None``.
+        arrow_scale:   Multiplier for arrow length (metres per unit magnitude).
+        min_magnitude: Minimum gradient magnitude to draw (skips near-zero cells).
+        color:         Arrow colour (default semi-transparent white).
+        show_pitch:    Draw pitch background when creating a new figure.
+        home_team_id:  Team ID of the home side for player colouring.
+        home_color:    Home player marker colour.
+        away_color:    Away player marker colour.
+        player_names:  Optional player ID → display name mapping.
+        bgcolor:       Pitch background colour.
+        line_color:    Pitch marking line colour.
+
+    Returns:
+        ``go.Figure`` with the flow-field arrows (and optional player overlay).
+    """
+    if fig is None:
+        fig = pitch_background(
+            flow.pitch, bgcolor=bgcolor, line_color=line_color,
+        ) if show_pitch else go.Figure()
+
+    nx, ny = flow.vectors.shape[:2]
+    x_centers = (flow.x_edges[:-1] + flow.x_edges[1:]) / 2.0
+    y_centers = (flow.y_edges[:-1] + flow.y_edges[1:]) / 2.0
+
+    # Build arrow segments: start → end with None separator
+    arrow_x: list[float | None] = []
+    arrow_y: list[float | None] = []
+
+    for i in range(nx):
+        for j in range(ny):
+            mag = float(flow.magnitudes[i, j])
+            if mag < min_magnitude:
+                continue
+            cx = float(x_centers[i])
+            cy = float(y_centers[j])
+            vx = float(flow.vectors[i, j, 0]) * arrow_scale
+            vy = float(flow.vectors[i, j, 1]) * arrow_scale
+            arrow_x += [cx, cx + vx, None]
+            arrow_y += [cy, cy + vy, None]
+
+    if arrow_x:
+        fig.add_trace(go.Scatter(
+            x=arrow_x,
+            y=arrow_y,
+            mode="lines",
+            line=dict(color=color, width=1.5),
+            hoverinfo="skip",
+            showlegend=False,
+            name="drag direction",
+        ))
+
+    if frame is not None:
+        from pitch_aura.viz.players import plot_players
+        fig = plot_players(
+            frame,
+            fig=fig,
+            show_pitch=False,
+            home_team_id=home_team_id,
+            home_color=home_color,
+            away_color=away_color,
+            player_names=player_names,
+        )
+
+    return fig
+
+
+def plot_interaction_matrix(
+    df: pd.DataFrame,
+    *,
+    metric_col: str = "total_nsg_m2",
+    player_names: dict[str, str] | None = None,
+    fig: go.Figure | None = None,
+    colorscale: str = "Blues",
+    title: str = "Gravity Interaction Matrix",
+) -> go.Figure:
+    """Render a gravity interaction matrix as an annotated heatmap.
+
+    Pivots the :class:`~pandas.DataFrame` from
+    :func:`~pitch_aura.tactics.gravity.gravity_interaction_matrix` into a
+    square mover × beneficiary matrix and renders it with
+    :class:`plotly.graph_objects.Heatmap`.
+
+    Parameters:
+        df:           DataFrame with ``[mover_id, beneficiary_id, <metric>]``
+                      columns from :func:`gravity_interaction_matrix`.
+        metric_col:   Column to use as cell values (default ``"total_nsg_m2"``).
+        player_names: Optional player ID → display name mapping for axis labels.
+        fig:          Existing figure; creates a new one if ``None``.
+        colorscale:   Plotly colorscale name (default ``"Blues"``).
+        title:        Figure title.
+
+    Returns:
+        ``go.Figure`` with the interaction matrix heatmap.
+    """
+    if fig is None:
+        fig = go.Figure()
+
+    if df.empty:
+        return fig
+
+    def _name(pid: str) -> str:
+        return player_names[pid] if player_names and pid in player_names else pid
+
+    # Pivot to square matrix
+    pivot = df.pivot(index="mover_id", columns="beneficiary_id", values=metric_col).fillna(0.0)
+
+    mover_labels = [_name(pid) for pid in pivot.index]
+    ben_labels = [_name(pid) for pid in pivot.columns]
+
+    z = pivot.values.tolist()
+
+    fig.add_trace(go.Heatmap(
+        z=z,
+        x=ben_labels,
+        y=mover_labels,
+        colorscale=colorscale,
+        colorbar=dict(title=metric_col, thickness=12),
+        hovertemplate=(
+            "Mover: %{y}<br>Beneficiary: %{x}<br>"
+            + f"{metric_col}: " + "%{z:.1f} m²<extra></extra>"
+        ),
+    ))
+
+    fig.update_layout(
+        title=title,
+        xaxis_title="Beneficiary",
+        yaxis_title="Mover",
         template="plotly_white",
     )
 
