@@ -5,11 +5,8 @@
 [![PyPI version](https://img.shields.io/pypi/v/pitch-aura.svg)](https://pypi.org/project/pitch-aura/)
 [![Python](https://img.shields.io/pypi/pyversions/pitch-aura.svg)](https://pypi.org/project/pitch-aura/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Docs](https://readthedocs.org/projects/pitchaura/badge/?version=latest)](https://pitchaura.readthedocs.io)
 
 PitchAura transforms raw player tracking coordinates into spatial control matrices, Voronoi territories, tactical metrics, and cognitive vision models — built on NumPy/SciPy with no mandatory heavy dependencies.
-
-**[Full documentation →](https://pitchaura.readthedocs.io)**
 
 ---
 
@@ -32,6 +29,8 @@ PitchAura transforms raw player tracking coordinates into spatial control matric
 pip install pitch-aura
 ```
 
+With optional extras:
+
 ```bash
 pip install "pitch-aura[kloppy]"     # kloppy I/O adapter
 pip install "pitch-aura[viz]"         # Plotly visualisation
@@ -42,28 +41,9 @@ pip install "pitch-aura[kloppy,viz]"  # Everything
 
 ---
 
-## Quick example
+## Getting started
 
-```python
-import numpy as np
-import pitch_aura as pa
-
-frame = pa.FrameRecord(
-    frame_id=1,
-    timestamp=0.04,
-    home_positions=np.array([[30.0, 0.0], [20.0, 10.0]]),
-    away_positions=np.array([[-25.0, 5.0], [-15.0, -8.0]]),
-    home_velocities=np.array([[2.0, 0.5], [1.0, -1.0]]),
-    away_velocities=np.array([[-1.5, 0.0], [-2.0, 1.0]]),
-    home_team_id="home",
-    ball_position=np.array([5.0, 0.0]),
-)
-
-model = pa.KinematicControlModel()
-grid = model.compute(frame)   # → ProbabilityGrid, shape (68, 105)
-```
-
-For more examples and the full API reference, see the **[documentation](https://pitchaura.readthedocs.io)**.
+Head to the [Quick Start](quickstart.md) page for hands-on examples, or browse the User Guide for in-depth coverage of each module.
 
 ---
 
@@ -75,4 +55,4 @@ The kinematic pitch control model is based on:
 
 ## License
 
-GNU General Public License v3.0 — see [LICENSE](LICENSE).
+GNU General Public License v3.0 — see [LICENSE](https://github.com/rondo-labs/PitchAura/blob/main/LICENSE).
