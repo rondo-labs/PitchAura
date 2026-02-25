@@ -47,11 +47,18 @@ dev = [
     "mypy>=1.10",
     "pre-commit>=3.0",
 ]
+docs = [
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.25",
+    "mkdocs-autorefs>=0.5",
+]
 all = ["pitch-aura[kloppy,viz,dev]"]
 
 [project.urls]
 Repository = "https://github.com/rondo-labs/PitchAura"
 Issues = "https://github.com/rondo-labs/PitchAura/issues"
+Documentation = "https://pitchaura.readthedocs.io"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pitch_aura"]
