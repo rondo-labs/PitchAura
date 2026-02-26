@@ -7,6 +7,15 @@ and evaluation metrics.
 from importlib.metadata import PackageNotFoundError, version
 
 from pitch_aura.cognitive.blind_spots import VisionModel
+from pitch_aura.events import (
+    PassingNetwork,
+    batch_event_control,
+    event_control,
+    event_density,
+    passing_network,
+    progressive_actions,
+    zone_counts,
+)
 from pitch_aura.io.kloppy_adapter import from_events, from_tracking
 from pitch_aura.space.kinematic import KinematicControlModel
 from pitch_aura.space.voronoi import VoronoiModel
@@ -30,6 +39,7 @@ __all__ = [
     "EventRecord",
     "FrameRecord",
     "FrameSequence",
+    "PassingNetwork",
     "PitchSpec",
     "ProbabilityGrid",
     "VoronoiResult",
@@ -43,5 +53,12 @@ __all__ = [
     "VisionModel",
     # Tactics
     "Pocket",
+    # Events
+    "batch_event_control",
+    "event_control",
+    "event_density",
+    "passing_network",
+    "progressive_actions",
+    "zone_counts",
     "__version__",
 ]
