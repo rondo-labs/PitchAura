@@ -7,9 +7,12 @@ Description:
     Default parameters for spatial models and pitch dimensions.
 """
 
-# --- Pitch ---
-PITCH_LENGTH: float = 105.0  # meters (FIFA standard)
-PITCH_WIDTH: float = 68.0  # meters (FIFA standard)
+# Shared constants (re-exported from pitch-core)
+from pitch_core.constants import (  # noqa: F401
+    DEFAULT_GRID_RESOLUTION,
+    PITCH_LENGTH,
+    PITCH_WIDTH,
+)
 
 # --- Kinematic Control Model (Spearman) ---
 DEFAULT_MAX_PLAYER_SPEED: float = 5.0  # m/s
@@ -21,9 +24,6 @@ DEFAULT_LAMBDA_GK: float = 3.0  # goalkeeper influence weight (reduced)
 DEFAULT_INTEGRATION_DT: float = 0.04  # integration timestep (seconds)
 DEFAULT_INTEGRATION_T_MAX: float = 10.0  # max integration time (seconds)
 DEFAULT_CONVERGENCE_THRESHOLD: float = 0.01  # early stopping threshold
-
-# --- Grid ---
-DEFAULT_GRID_RESOLUTION: tuple[int, int] = (105, 68)  # 1m x 1m cells
 
 # --- Vision Model ---
 DEFAULT_CONE_HALF_ANGLE: float = 100.0  # degrees (200° total FOV)

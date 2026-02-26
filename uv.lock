@@ -1273,6 +1273,7 @@ source = { editable = "." }
 dependencies = [
     { name = "numpy" },
     { name = "pandas" },
+    { name = "pitch-core" },
     { name = "scipy" },
 ]
 
@@ -1323,6 +1324,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=1.24" },
     { name = "pandas", specifier = ">=2.0" },
     { name = "pitch-aura", extras = ["kloppy", "viz", "dev"], marker = "extra == 'all'" },
+    { name = "pitch-core", editable = "../PitchCore" },
     { name = "plotly", marker = "extra == 'viz'", specifier = ">=5.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
@@ -1331,6 +1333,29 @@ requires-dist = [
     { name = "scipy", specifier = ">=1.10" },
 ]
 provides-extras = ["kloppy", "viz", "dev", "docs", "all"]
+
+[[package]]
+name = "pitch-core"
+version = "0.1.0"
+source = { editable = "../PitchCore" }
+dependencies = [
+    { name = "numpy" },
+    { name = "pandas" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "kaleido", marker = "extra == 'viz'", specifier = ">=0.2" },
+    { name = "kloppy", marker = "extra == 'kloppy'", specifier = ">=3.15" },
+    { name = "numpy", specifier = ">=1.24" },
+    { name = "pandas", specifier = ">=2.0" },
+    { name = "pitch-core", extras = ["kloppy", "viz", "dev"], marker = "extra == 'all'" },
+    { name = "plotly", marker = "extra == 'viz'", specifier = ">=5.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4" },
+]
+provides-extras = ["kloppy", "viz", "dev", "all"]
 
 [[package]]
 name = "platformdirs"

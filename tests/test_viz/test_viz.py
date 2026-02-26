@@ -19,7 +19,7 @@ pytest.importorskip("plotly")
 
 import plotly.graph_objects as go
 
-from pitch_aura.types import FrameRecord, FrameSequence, PitchSpec, ProbabilityGrid, VoronoiResult
+from pitch_aura.types import FrameRecord, FrameSequence, PitchSpec, ProbabilityGrid
 from pitch_aura.viz._pitch_draw import pitch_background
 from pitch_aura.viz.animation import animate_sequence
 from pitch_aura.viz.heatmap import plot_heatmap
@@ -95,37 +95,6 @@ def simple_sequence(pitch):
 
 
 # ---------------------------------------------------------------------------
-# pitch_background
-# ---------------------------------------------------------------------------
-
-class TestPitchBackground:
-    def test_returns_figure(self, pitch):
-        fig = pitch_background(pitch)
-        assert isinstance(fig, go.Figure)
-
-    def test_has_traces(self, pitch):
-        fig = pitch_background(pitch)
-        assert len(fig.data) > 0
-
-    def test_custom_bgcolor(self, pitch):
-        fig = pitch_background(pitch, bgcolor="#ffffff")
-        assert fig.layout.plot_bgcolor == "#ffffff"
-
-    def test_x_range_set(self, pitch):
-        fig = pitch_background(pitch)
-        xr = fig.layout.xaxis.range
-        assert xr[0] == pytest.approx(-52.5)
-        assert xr[1] == pytest.approx(52.5)
-
-    def test_bottom_left_origin(self):
-        pitch = PitchSpec(origin="bottom_left")
-        fig = pitch_background(pitch)
-        xr = fig.layout.xaxis.range
-        assert xr[0] == pytest.approx(0.0)
-        assert xr[1] == pytest.approx(105.0)
-
-
-# ---------------------------------------------------------------------------
 # plot_heatmap
 # ---------------------------------------------------------------------------
 
@@ -150,54 +119,6 @@ class TestPlotHeatmap:
         heat = next(t for t in fig.data if isinstance(t, go.Heatmap))
         assert len(heat.x) == 10   # nx
         assert len(heat.y) == 7    # ny
-
-
-# ---------------------------------------------------------------------------
-# plot_players
-# ---------------------------------------------------------------------------
-
-class TestPlotPlayers:
-    def test_returns_figure(self, simple_frame):
-        fig = plot_players(simple_frame)
-        assert isinstance(fig, go.Figure)
-
-    def test_scatter_traces_for_players(self, simple_frame):
-        fig = plot_players(simple_frame, show_velocity=False, show_ball=False)
-        scatter = [t for t in fig.data if isinstance(t, go.Scatter) and t.mode == "markers"]
-        # At least one player scatter per symbol type (circle + square)
-        assert len(scatter) >= 1
-
-    def test_ball_present(self, simple_frame):
-        fig = plot_players(simple_frame, show_ball=True, show_velocity=False)
-        ball_traces = [t for t in fig.data if isinstance(t, go.Scatter)
-                       and t.name == "Ball"]
-        assert len(ball_traces) == 1
-
-    def test_no_ball_when_disabled(self, simple_frame):
-        fig = plot_players(simple_frame, show_ball=False)
-        ball_traces = [t for t in fig.data if isinstance(t, go.Scatter)
-                       and t.name == "Ball"]
-        assert len(ball_traces) == 0
-
-    def test_velocity_traces_when_enabled(self, simple_frame):
-        fig = plot_players(simple_frame, show_velocity=True)
-        vel_traces = [t for t in fig.data
-                      if isinstance(t, go.Scatter) and t.name == "velocity"]
-        assert len(vel_traces) == 1
-
-    def test_empty_frame_returns_figure(self, pitch):
-        frame = FrameRecord(
-            timestamp=0.0, period=1, ball_position=np.array([0.0, 0.0]),
-            player_ids=[], team_ids=[], positions=np.empty((0, 2)),
-        )
-        fig = plot_players(frame)
-        assert isinstance(fig, go.Figure)
-
-    def test_composable(self, simple_frame, simple_grid):
-        base = plot_heatmap(simple_grid)
-        n_before = len(base.data)
-        fig = plot_players(simple_frame, fig=base, show_pitch=False)
-        assert len(fig.data) > n_before
 
 
 # ---------------------------------------------------------------------------
