@@ -26,6 +26,11 @@ from __future__ import annotations
 
 from pitch_aura.viz._pitch_draw import pitch_background
 from pitch_aura.viz.animation import animate_sequence
+from pitch_aura.viz.events import (
+    plot_event_zones,
+    plot_passing_network,
+    plot_progressive_passes,
+)
 from pitch_aura.viz.heatmap import plot_heatmap
 from pitch_aura.viz.players import plot_players
 from pitch_aura.viz.tactics import (
@@ -157,6 +162,10 @@ __all__ = [
     "plot_gravity_timeseries",
     "plot_interaction_matrix",
     "animate_sequence",
+    # Events
+    "plot_passing_network",
+    "plot_progressive_passes",
+    "plot_event_zones",
     # High-level
     "plot_pitch_control",
     "plot_voronoi_control",

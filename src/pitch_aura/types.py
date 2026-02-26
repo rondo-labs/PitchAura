@@ -208,7 +208,12 @@ class VoronoiResult:
 
 @dataclass(frozen=True, slots=True)
 class EventRecord:
-    """Minimal event representation for temporal alignment."""
+    """Event representation with spatial context for event-based analysis.
+
+    Core fields capture temporal and spatial identity.  Optional fields
+    carry richer spatial information extracted from providers such as
+    StatsBomb, Opta, and Wyscout via kloppy.
+    """
 
     timestamp: float
     """Seconds from period start."""
@@ -217,4 +222,13 @@ class EventRecord:
     player_id: str | None = None
     team_id: str | None = None
     coordinates: np.ndarray | None = None
-    """Event location, shape ``(2,)`` or ``None``."""
+    """Event start location, shape ``(2,)`` or ``None``."""
+    end_coordinates: np.ndarray | None = None
+    """Event end location (pass receive point / carry end / shot target),
+    shape ``(2,)`` or ``None``."""
+    result: str | None = None
+    """Outcome string, e.g. ``"complete"``, ``"goal"``, ``"incomplete"``."""
+    qualifiers: tuple[str, ...] = ()
+    """Provider qualifiers, e.g. ``("CROSS", "THROUGH_BALL")``."""
+    freeze_frame: FrameRecord | None = None
+    """Player position snapshot at the moment of the event."""

@@ -196,8 +196,142 @@ def from_tracking(dataset: TrackingDataset) -> FrameSequence:
     )
 
 
+def _scale_point(
+    point: object,
+    pitch_length: float,
+    pitch_width: float,
+) -> np.ndarray | None:
+    """Scale a kloppy Point to meters, returning shape ``(2,)`` or ``None``."""
+    if point is None:
+        return None
+    x = getattr(point, "x", None)
+    y = getattr(point, "y", None)
+    if x is None or y is None:
+        return None
+    return np.array([x * pitch_length, y * pitch_width], dtype=np.float64)
+
+
+def _extract_end_coordinates(
+    event: object,
+    pitch_length: float,
+    pitch_width: float,
+) -> np.ndarray | None:
+    """Extract end coordinates from pass/carry/shot events."""
+    # PassEvent → receiver_coordinates
+    coords = getattr(event, "receiver_coordinates", None)
+    if coords is not None:
+        return _scale_point(coords, pitch_length, pitch_width)
+    # CarryEvent / ShotEvent → end_coordinates or result_coordinates
+    for attr in ("end_coordinates", "result_coordinates"):
+        coords = getattr(event, attr, None)
+        if coords is not None:
+            return _scale_point(coords, pitch_length, pitch_width)
+    return None
+
+
+def _extract_result(event: object) -> str | None:
+    """Extract event result as a lowercase string."""
+    result = getattr(event, "result", None)
+    if result is None:
+        return None
+    # kloppy results have a .value or name attribute (enum-like)
+    name = getattr(result, "name", None)
+    if name is not None:
+        return str(name).lower()
+    return str(result).lower()
+
+
+def _extract_qualifiers(event: object) -> tuple[str, ...]:
+    """Extract qualifier names as a tuple of uppercase strings."""
+    qualifiers = getattr(event, "qualifiers", None)
+    if not qualifiers:
+        return ()
+    names: list[str] = []
+    for q in qualifiers:
+        # Each qualifier has a qualifier_id (enum) with .value having a .name
+        value = getattr(q, "value", None)
+        if value is not None:
+            name = getattr(value, "name", None)
+            if name is not None:
+                names.append(str(name).upper())
+                continue
+        # Fallback: use the qualifier's own name/type
+        q_name = getattr(q, "name", None) or type(q).__name__
+        names.append(str(q_name).upper())
+    return tuple(names)
+
+
+def _extract_freeze_frame(
+    event: object,
+    pitch_length: float,
+    pitch_width: float,
+    timestamp: float,
+    period: int,
+) -> FrameRecord | None:
+    """Convert a kloppy event's freeze_frame to a FrameRecord."""
+    ff = getattr(event, "freeze_frame", None)
+    if ff is None:
+        return None
+
+    # freeze_frame is a Frame object with players_data
+    players_data = getattr(ff, "players_data", None)
+    if not players_data:
+        return None
+
+    player_ids: list[str] = []
+    team_ids: list[str] = []
+    positions: list[list[float]] = []
+    gk_flags: list[bool] = []
+
+    for player, pdata in players_data.items():
+        if pdata.coordinates is None:
+            continue
+        player_ids.append(str(player.player_id))
+        team_ids.append(str(player.team.team_id))
+        positions.append([
+            pdata.coordinates.x * pitch_length,
+            pdata.coordinates.y * pitch_width,
+        ])
+        gk_flags.append(_is_goalkeeper(player))
+
+    if not positions:
+        return None
+
+    # Ball position from event coordinates or freeze_frame ball
+    ball_coords = getattr(ff, "ball_coordinates", None)
+    if ball_coords is not None:
+        bx = ball_coords.x * pitch_length
+        by = ball_coords.y * pitch_width
+        ball_pos = np.array([bx, by], dtype=np.float64)
+    elif getattr(event, "coordinates", None) is not None:
+        ball_pos = np.array(
+            [
+                event.coordinates.x * pitch_length,
+                event.coordinates.y * pitch_width,
+            ],
+            dtype=np.float64,
+        )
+    else:
+        ball_pos = np.array([np.nan, np.nan], dtype=np.float64)
+
+    return FrameRecord(
+        timestamp=timestamp,
+        period=period,
+        ball_position=ball_pos,
+        player_ids=player_ids,
+        team_ids=team_ids,
+        positions=np.array(positions, dtype=np.float64),
+        velocities=None,
+        is_goalkeeper=np.array(gk_flags, dtype=bool),
+    )
+
+
 def from_events(dataset: EventDataset) -> list[EventRecord]:
     """Convert a kloppy ``EventDataset`` to a list of :class:`EventRecord`.
+
+    Extracts rich spatial information including end coordinates (for passes,
+    carries, shots), event results, qualifiers, and freeze frames when
+    available from the data provider.
 
     Parameters:
         dataset: A ``kloppy.EventDataset`` instance.
@@ -212,24 +346,26 @@ def from_events(dataset: EventDataset) -> list[EventRecord]:
 
     records: list[EventRecord] = []
     for event in dataset.records:
-        coords: np.ndarray | None = None
-        if event.coordinates is not None:
-            coords = np.array(
-                [
-                    event.coordinates.x * pitch_length,
-                    event.coordinates.y * pitch_width,
-                ],
-                dtype=np.float64,
-            )
+        coords = _scale_point(event.coordinates, pitch_length, pitch_width)
+        timestamp = event.timestamp.total_seconds()
+        period = event.period.id
 
         records.append(
             EventRecord(
-                timestamp=event.timestamp.total_seconds(),
-                period=event.period.id,
+                timestamp=timestamp,
+                period=period,
                 event_type=event.event_name,
                 player_id=str(event.player.player_id) if event.player else None,
                 team_id=str(event.team.team_id) if event.team else None,
                 coordinates=coords,
+                end_coordinates=_extract_end_coordinates(
+                    event, pitch_length, pitch_width,
+                ),
+                result=_extract_result(event),
+                qualifiers=_extract_qualifiers(event),
+                freeze_frame=_extract_freeze_frame(
+                    event, pitch_length, pitch_width, timestamp, period,
+                ),
             )
         )
 
